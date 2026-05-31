@@ -4,20 +4,20 @@
 //
 
 // Colors
-$blue: #4183C4;
+$blue: #2563eb;
 
 // Grays
-$black: #000;
-$darkerGray: #222;
-$darkGray: #333;
-$gray: #666;
-$lightGray: #eee;
+$black: #111;
+$darkerGray: #1a1a1a;
+$darkGray: #374151;
+$gray: #6b7280;
+$lightGray: #f3f4f6;
 $white: #fff;
 
 // Font stacks
-$helvetica: Helvetica, Arial, sans-serif;
-$helveticaNeue: "Helvetica Neue", Helvetica, Arial, sans-serif;
-$georgia: Georgia, serif;
+$helvetica: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$helveticaNeue: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$georgia: Georgia, "Times New Roman", serif;
 
 // Mobile breakpoints
 @mixin mobile {
