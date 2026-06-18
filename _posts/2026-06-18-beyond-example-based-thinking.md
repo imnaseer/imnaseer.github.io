@@ -113,9 +113,9 @@ It's the same test, only now the checking lives in the spec instead of in hand-w
 
 ```json
 [
-  { "operation": "CreateAccount", "request": { "accountId": "alice" },               "response": { "statusCode": 201, "balance": 0 } },
-  { "operation": "Deposit",       "request": { "accountId": "alice", "amount": 100 }, "response": { "statusCode": 200, "balance": 100 } },
-  { "operation": "Withdraw",      "request": { "accountId": "alice", "amount": 30 },  "response": { "statusCode": 200, "balance": 70 } }
+  { "operation": "CreateAccount", "request": { "accountId": "alice" }, "response": { "statusCode": 201, "balance": 0 } },
+  { "operation": "Deposit", "request": { "accountId": "alice", "amount": 100 }, "response": { "statusCode": 200, "balance": 100 } },
+  { "operation": "Withdraw", "request": { "accountId": "alice", "amount": 30 }, "response": { "statusCode": 200, "balance": 70 } }
 ]
 ```
 
@@ -137,8 +137,6 @@ That loop never changes. The same handful of lines now drives any number of exam
 (There are some subtleties here. Sometimes a request depends on the response of an earlier call - you create an account, get back a server-generated id, and the next request needs to refer to it. A static JSON file can't hardcode an id it doesn't know yet, so you need a way to thread values forward through the sequence. It's a solvable problem with a bit of engineering, and Accordant has mechanisms for these _derived requests_; the [docs](https://microsoft.github.io/accordant) go into the details.)
 
 This flipped the economics. Writing an example went from *author a test* to *jot down a sequence*, and the number of examples in our suite climbed by an order of magnitude. Not generated ones; examples our developers actually chose, as scenarios worth documenting and regressions worth pinning down. And each was now checked harder than before, against the full contract instead of the two or three asserts someone happened to type.
-
----
 
 ## We Could Reason With It
 
