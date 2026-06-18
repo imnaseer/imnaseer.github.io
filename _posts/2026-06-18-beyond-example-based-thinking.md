@@ -109,25 +109,27 @@ var r3 = await client.Withdraw("alice", 30);
 Assert.True(ok, msg);
 ```
 
-It's the same test, only now the checking lives in the spec instead of in hand-written asserts. And once you notice that the only thing distinguishing this example from the next is the _data_ - the operations, the requests, and the responses we observed - there's no reason to keep it in C# at all. You can write the same example as JSON:
+It's the same test, only now the checking lives in the spec instead of in hand-written asserts. And once you notice that the only thing distinguishing this example from the next is the _data_ - the sequence of operations and their requests - there's no reason to keep it in C# at all. You can write the same example as JSON:
 
 ```json
 [
-  { "operation": "CreateAccount", "request": { "accountId": "alice" }, "response": { "statusCode": 201, "balance": 0 } },
-  { "operation": "Deposit", "request": { "accountId": "alice", "amount": 100 }, "response": { "statusCode": 200, "balance": 100 } },
-  { "operation": "Withdraw", "request": { "accountId": "alice", "amount": 30 }, "response": { "statusCode": 200, "balance": 70 } }
+  { "operation": "CreateAccount", "request": { "accountId": "alice" } },
+  { "operation": "Deposit", "request": { "accountId": "alice", "amount": 100 } },
+  { "operation": "Withdraw", "request": { "accountId": "alice", "amount": 30 } }
 ]
 ```
 
-and replay it through a single loop:
+A tiny driver reads each step, makes the actual call against the running system, and hands the real response to the spec:
 
 ```csharp
 var profile = new StateProfile(new BankState());
 
 foreach (var step in scenario)
 {
+    var response = await client.Call(step.Operation, step.Request);
+
     bool ok; string message;
-    (ok, message, profile) = spec.Allows(step.Op, step.Request, step.Response, profile);
+    (ok, message, profile) = spec.Allows(step.Operation, step.Request, response, profile);
     Assert.True(ok, message);
 }
 ```
