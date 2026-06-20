@@ -1,11 +1,11 @@
 ---
 layout: post
-title: Beyond Example-Based Thinking
+title: The Problem With Example-Based Testing Isn't the Examples
 ---
 
-*How extracting an executable spec paradoxically let us 10x our example-driven tests*
+*What happened when we teased the semantics out of the scenarios.*
 
-I remember looking at the test suite my team had put together - around 500 integration tests covering our API surface area. Alongside the usual happy-path and negative cases, we even had a few that invoked the APIs concurrently: create two items at once and assert that only one call should succeed, or create and delete an item at the same time and assert that they should happen in _some_ logical order (the item should never be in half created/deleted state). Those concurrent ones were a mind bender, because what you observed depended on the logical order the operations ran in. A developer had to simulate the orderings in their head and write the assertions for each. They were good at catching concurrency bugs, so we wrote a handful of such tests. Overall, we were reasoanbly proud of our test suite.
+I remember looking at the test suite the team had put together - around 500 integration tests covering our API surface area. Alongside the usual happy-path and negative cases, we even had a few that invoked the APIs concurrently: create two items at once and assert that only one call should succeed, or create and delete an item at the same time and assert that they should happen in _some_ logical order (the item should never be in half created/deleted state). Those concurrent ones were a mind bender, because what you observed depended on the logical order the operations ran in. A developer had to simulate the orderings in their head and write the assertions for each. Overall, we were reasonably proud of our test suite.
 
 Yet I still had a nagging feeling. Every time I looked at the suite I could spot gaps: negative cases we hadn't written, interaction patterns we hadn't covered. I could have continued to nag the team to write more tests but every test case is code that has to be written and maintained and there's a natural ceiling on how many you'll add before the cost stops feeling worth it.
 
@@ -17,7 +17,7 @@ Secondly, as I read the tests, I kept seeing the *semantic contract* of the API 
 
 The contract was **everywhere in the test suite, yet nowhere in particular**. Ideally we'd have written a design doc spelling it out, but we hadn't, so the test suite was the next best thing.
 
-This naturally lead to the question: can we *tease apart* that contract from the tests, and state it directly?
+This naturally led to the question: can we *tease apart* that contract from the tests, and state it directly?
 
 ## What the Contract Looks Like
 
@@ -40,9 +40,9 @@ spec.Operation<WithdrawRequest, WithdrawResponse>("Withdraw", (request, state) =
 });
 ```
 
-You can almost read the behavior off it. If the account doesn't exist, you should get a not-found and nothing changes. If the balance is too low, a bad-request, and again nothing changes. Otherwise the withdrawal goes through and the balance drops by the amount. That's all of Withdraw, in one place.
+You can almost read the behavior off it. If the account doesn't exist, you should get a not-found and nothing changes. If the balance is too low, a bad-request, and again nothing changes. Otherwise the withdrawal goes through and the balance drops by the amount. That's all of Withdraw, in one place[^state-machine].
 
-The rules are written against a *state*, and we get to choose what that state is. For a bank account it's nothing more than account IDs and their balances:
+The rules are written against a *state* - the minimal bit of information you need to pin down the semantics. For a bank account it's nothing more than account IDs and their balances:
 
 ```csharp
 [State]
@@ -52,9 +52,11 @@ public partial class BankState
 }
 ```
 
-No database, no HTTP plumbing, no retry logic - just the minimum you need to say what the expected behavior looks like. The contract describes *what* should happen; the real implementation worries about the *how*. Every operation follows the same shape - check the preconditions, state the expected response, state how the state changes - and the whole contract for the service fits a few pages.
+No database, no HTTP plumbing, no retry logic - none of the machinery the real implementation worries about. The contract describes *what* should happen; the implementation worries about the *how*. Every operation follows the same shape - check the preconditions, state the expected response, state how the state changes - and the whole contract for the service fits a few pages.
 
-A quick aside: this post isn't a tutorial on Accordant or on how to write these specs. The [docs](https://microsoft.github.io/accordant) cover that. Here I just want to talk about what happened once we had one.
+<div class="callout" markdown="1">
+**Aside** — this post isn't a tutorial on Accordant or on how to write these specs. The [docs](https://microsoft.github.io/accordant) cover that. Here I just want to talk about what happened once we had one.
+</div>
 
 Pulling the contract out of our tests had three consequences. The first I was expecting. The other two caught me off guard.
 
@@ -66,11 +68,13 @@ Just having the semantics written down, in one place we could review, was alread
 
 ## It Was Executable
 
-Because the contract is executable, it can check *any* sequence of operations, not just the ones we thought to write. Our first reaction was that of excitement: suddenly we could fuzz inputs and throw arbitrary sequences at the specs and validate that our system worked as expected. This was powerful and continues to find bugs to this day.
+Because the contract is executable, it can check *any* sequence of operations, not just the ones we thought to write. Our first reaction was excitement: suddenly we could fuzz inputs and throw arbitrary sequences at the specs and validate that our system worked as expected. This was powerful and continues to find bugs to this day.
 
-But then we also realized that the separation between the scenario and the checks (something that traditional tests _intertwine_) paradoxically allows us to have a _lot more_ example-driven tests.
+This is usually where the story stops. Model-based and property-based testing are pitched as the alternative to the example-based tests most of us write: stop exercising concrete scenarios with specific checks, write a spec or an invariant, and let the machine generate fuzzed sequences instead. I think that framing is a bit of a false dichotomy. Examples are good - they're how a developer skims one case and immediately gets how a feature behaves. **The problem was never the examples. It was that each test fused the example and its checks into a single artifact.**
 
-Examples are good: they're illustrative; a developer skims one and immediately gets how a feature behaves. We'd been a little stingy with them though, because each example was another test to write and maintain. But with the checking living in the contract, an example no longer needed its own bespoke assertions.
+And once we'd pulled those apart, something paradoxical happened: **we ended up with a lot more examples, not fewer.**
+
+We'd been a little stingy with them, because each example was another test to write and maintain. But with the checking living in the contract, an example no longer needed its own bespoke assertions.
 
 Here's what a test used to look like - the scenario and the checking tangled together:
 
@@ -134,39 +138,41 @@ foreach (var step in scenario)
 }
 ```
 
-That loop never changes. The same handful of lines now drives any number of examples - adding one is just appending to a file.
-
-(There are some subtleties here. Sometimes a request depends on the response of an earlier call - you create an account, get back a server-generated id, and the next request needs to refer to it. A static JSON file can't hardcode an id it doesn't know yet, so you need a way to thread values forward through the sequence. It's a solvable problem with a bit of engineering, and Accordant has mechanisms for these _derived requests_; the [docs](https://microsoft.github.io/accordant) go into the details.)
+That loop never changes. The same handful of lines now drives any number of examples - adding one is just appending to a file.[^derived]
 
 This flipped the economics. Writing an example went from *author a test* to *jot down a sequence*, and the number of examples in our suite climbed by an order of magnitude. Not generated ones; examples our developers actually chose, as scenarios worth documenting and regressions worth pinning down. And each was now checked harder than before, against the full contract instead of the two or three asserts someone happened to type.
 
 ## We Could Reason With It
 
-This last bit - the ability to _mechanically reason_ with the help of the contract was the most surprising, and most gratifying outcome.
+This last bit - the ability to _mechanically reason_ with the help of the contract - was the most surprising, and most gratifying, outcome.
 
-Let's revisit those concurrency tests we mentioned in the beginning. When two (or three or four) operations run at the same time, you don't know which one the system processed first, second and so on. Before, a developer had to hold multiple orderings in their head and hand-write the outcomes for each. With the contract, we didn't have to. We could run each operation's spec in possible logical orders and ask whether at least one ordering explained the observed responses. If none of them explained the response, we had found a genuine bug. This was powerful and lead us to write (as well as mechanically generate) tons of concurrency tests, far more than was practical to write by hand. In fact, we often get failures that takes us a while to grok _why_ they are failing. Expecting developers to mentally simulate all these orderings and write tests around them just doesn't work - there's a reason we don't see such tests in our test suites.
+Let's revisit those concurrency tests we mentioned in the beginning. When two (or three or four) operations run at the same time, you don't know which one the system processed first, second and so on. Before, a developer had to hold multiple orderings in their head and hand-write the outcomes for each. With the contract, we didn't have to. We could run each operation's spec in possible logical orders and ask whether at least one ordering explained the observed responses. If none of them explained the response, we had found a genuine bug. This was powerful and led us to write (as well as mechanically generate) tons of concurrency tests, far more than was practical to write by hand. In fact, we often get failures that take us a while to grok _why_ they are failing. Expecting developers to mentally simulate all these orderings and write tests around them just doesn't work - there's a reason we don't see such tests in typical test suites.
 
-This wasn't just limited to just concurrency. Imagine a situation where you perform an operation and you get a socket timeout. Maybe the operation never took effect (as the request never reached the server), or maybe it did (as the request reached the server but the response never got back to you due to a network glitch). These failures are sometimes called [_indefinite failures_](https://antithesis.com/docs/resources/reliability_glossary/#indefinite-error). Now imagine reasoning about valid outcomes involving a _combination_ of concurrency and indefinite failures. It gets complex - fast.
+This wasn't limited to concurrency. Fault injection is another case. Say you do a create and get a socket timeout. Maybe the operation never took effect (the request never reached the server), or maybe it did (the request landed but the response got lost on the way back) - these are sometimes called [_indefinite failures_](https://antithesis.com/docs/resources/reliability_glossary/#indefinite-error). So now you're tracking two possible states. Do another write that also times out, and each of those branches splits again - now you're reasoning about four. And if that weren't enough, layer concurrency on top, where the operations could also have been applied in any order.
 
-The surprising realization was that the developers did not have to grapple with this complexity when writing the specs. They just wrote the spec when the system was in a _single_ given state. That's easy to read and write. The compositional reasoning above effectively comes for free once you have written down the semantics as executable specs as the framework can do the bookkeeping of the set of states the system could be in and the various logical orders the operations could have run in. It's quite freeing once you experience it.
+Here's the part I find delightful: the developer writing the spec never has to think about any of this. You write each rule against a _single_ given state - that's easy to read and easy to write - and the framework does the bookkeeping, fanning out across the set of states the system could be in and the orders the operations could have run in. The combinatorial reasoning comes for free. It's quite freeing once you experience it.
 
-In addition to reasoning through possible scenarios during the validation phase, the contracts also allowed us to _simulate_ how the (logical) state of the system unfolds over time. If you look back at the code snippet above, you'll see that it is effectively a state machine (potentially an infinite state machine, but a state machine nonetheless). You get a request in _some state_ and you go to one (or more) next states. Apply every operation from every reachable state and a graph falls out - the states the system can be in, with operations as the edges between them. Here's one Accordant generated from the very bank account spec we've been looking at:
+In addition to reasoning through possible scenarios during the validation phase, the contracts also allowed us to _simulate_ how the (logical) state of the system unfolds over time. If you look back at the contract above, you'll see that it is effectively a state machine. You get a request in _some state_ and you go another state (or loop back to the same state). If you start with a set of operations and transitively apply them in each reachable state (up to some bound), a state graph falls out. Here's one Accordant generated from the bank account spec we've been looking at:
 
 ![State graph from the bank account spec](/images/bank-account-state-graph.png)
 
-Walking that graph hands you test sequences for free: cover every state, exercise every transition, or steer toward some corner you want to probe. So the same spec works at both ends - it discovers interesting sequences to run, and then it does the complex reasoning to validate the responses.
+Walking that graph results in meaningful test sequences that aren't purely random but drive the system to interesting states. You can also begin to ask questions about state and scenario coverage instead of just code coverage.
 
-## Have your cake and eat it too?
+## It All Came From One Move
 
-It's interesting to realize that all this was possible because of a subtle shift in how we wrote down the semantic contract. We were "half specifying" the contract in any case - just scattered around in lots of test cases. Stating the same contract as an executable contract lead to the following outcomes:
-
+Looking back, everything in this post came from one move: stating the contract directly, as executable code, instead of leaving it scattered across hundreds of tests. That one shift led to the following:
+    
 - **Legibility**: the behavior of the API written down in one place you can read and inspect.
-- **Executability**: teasing the contract into an executable spec allowed us to validate arbitrary scenarios and paradoxically multiplied the number of example-driven tests in our test suite.
-- **Generative**: the spec could be used not just to validate responses but also to generate interetsing sequences.
-- **Reasoning**: concurrency and ambiguous failures turn into bookkeeping the spec does for you, freeing the developers from having to write such tests by hand.
+- **Executability**: validating arbitrary scenarios, and paradoxically multiplying the number of example-driven tests in our suite.
+- **Generative**: the same spec generating interesting sequences, not just checking the ones we wrote.
+- **Reasoning**: concurrency and ambiguous failures turning into bookkeeping the spec does for you.
 
-It felt like we could have our cake and eat it too.
+All I'd wanted was to state the contract directly, in one place. I didn't expect that one move to buy us as much as it did.
 
 ---
 
-If this resonates, [Accordant](https://github.com/microsoft/accordant) is the framework we built around the idea - open-source, model-based testing for .NET. You write the contract as executable specs, and it takes care of validation, state tracking, the concurrency reasoning, and the test generation.
+[Accordant](https://github.com/microsoft/accordant) is the open-source .NET framework we built putting these ideas to work on a large Azure service at Microsoft. It descends from a rich lineage of model-based testing work there - Spec Explorer, Spec#, NModel, and others.
+
+[^state-machine]: The astute reader might immediately notice that we're defining a state machine above which says the next state we should transition to when given a particular request in some state.
+
+[^derived]: It's not always quite that simple. Sometimes a request depends on the response of an earlier call - you create an account, get back a server-generated id, and the next request needs to refer to it. A static JSON file can't hardcode an id it doesn't know yet, so you need a way to thread values forward through the sequence. It's a solvable problem with a bit of engineering, and Accordant has mechanisms for these _derived requests_; the [docs](https://microsoft.github.io/accordant) go into the details.
