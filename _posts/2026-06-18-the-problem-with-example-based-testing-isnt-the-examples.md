@@ -1,6 +1,8 @@
 ---
 layout: post
 title: The Problem With Example-Based Testing Isn't the Examples
+redirect_from:
+  - /beyond-example-based-thinking/
 ---
 
 *What happened when we teased the semantics out of the scenarios.*
