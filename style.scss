@@ -118,6 +118,7 @@ img {
 }
 
 .date {
+  margin-top: 40px;
   font-style: italic;
   color: $gray;
 }
@@ -268,9 +269,120 @@ nav {
     margin-top: 10px;
   }
 
+  // Sticky sidebar table of contents.
+  // Hidden by default; only shown when the viewport is wide enough to fit it
+  // in the gutter beside the 900px-wide content column.
+  .post-toc {
+    display: none;
+  }
+
+  .callout {
+    margin: 1.8em 0;
+    padding: 14px 18px;
+    background-color: $lightGray;
+    border-left: 4px solid $gray;
+    border-radius: 0 4px 4px 0;
+    font-size: 16px;
+    line-height: 1.6;
+
+    p {
+      margin: 0;
+    }
+  }
+
   .read-more {
     text-transform: uppercase;
     font-size: 15px;
+  }
+
+  // Footnote reference marker (the superscript number in the body)
+  sup[role="doc-noteref"] {
+    font-size: 0.75em;
+    margin-left: 2px;
+    font-weight: 600;
+
+    a.footnote {
+      text-decoration: none;
+
+      &::before { content: "["; }
+      &::after  { content: "]"; }
+    }
+  }
+
+  // Kramdown footnote section at the bottom of the post
+  .footnotes {
+    margin-top: 50px;
+    padding-top: 16px;
+    border-top: 1px solid $gray;
+    font-size: 15px;
+    color: $gray;
+
+    ol {
+      margin-bottom: 0;
+    }
+
+    p {
+      margin: 0.3em 0;
+    }
+  }
+}
+
+// Sticky sidebar TOC — only when there's room beside the 900px content column.
+// The TOC's right edge sits at (50% + 450 + 24 + 220) = (50% + 694px) from
+// center, so the viewport must be at least 1388px wide to show it fully.
+// Round up to 1400px so it never clips at the edge.
+@media screen and (min-width: 1400px) {
+  .post .post-toc {
+    display: block;
+    position: fixed;
+    top: 120px;
+    // Right edge of the centered 900px column is at (50% + 450px);
+    // place the TOC just to its right with a 24px gap.
+    left: calc(50% + 450px + 24px);
+    width: 220px;
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+
+    .post-toc-title {
+      margin: 0 0 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: $gray;
+    }
+
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-right: 1px solid $lightGray;
+    }
+
+    li {
+      margin: 0;
+    }
+
+    a {
+      display: block;
+      padding: 5px 14px 5px 0;
+      margin-right: -1px;
+      border-right: 2px solid transparent;
+      font-size: 14px;
+      line-height: 1.4;
+      color: $gray;
+      text-decoration: none;
+
+      &:hover {
+        color: $darkGray;
+      }
+
+      &.active {
+        color: $blue;
+        border-right-color: $blue;
+        font-weight: 600;
+      }
+    }
   }
 }
 
