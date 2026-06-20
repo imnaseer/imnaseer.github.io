@@ -7,7 +7,11 @@ title: The Problem With Example-Based Testing Isn't the Examples
 
 I remember looking at the test suite the team had put together - around 500 integration tests covering our API surface area. Alongside the usual happy-path and negative cases, we even had a few that invoked the APIs concurrently: create two items at once and assert that only one call should succeed, or create and delete an item at the same time and assert that they should happen in _some_ logical order (the item should never be in half created/deleted state). Those concurrent ones were a mind bender, because what you observed depended on the logical order the operations ran in. A developer had to simulate the orderings in their head and write the assertions for each. Overall, we were reasonably proud of our test suite.
 
-Yet I still had a nagging feeling. Every time I looked at the suite I could spot gaps: negative cases we hadn't written, interaction patterns we hadn't covered. I could have continued to nag the team to write more tests but every test case is code that has to be written and maintained and there's a natural ceiling on how many you'll add before the cost stops feeling worth it.
+Yet I still had a nagging feeling.
+
+<!--more-->
+
+Every time I looked at the suite I could spot gaps: negative cases we hadn't written, interaction patterns we hadn't covered. I could have continued to nag the team to write more tests but every test case is code that has to be written and maintained and there's a natural ceiling on how many you'll add before the cost stops feeling worth it.
 
 Secondly, as I read the tests, I kept seeing the *semantic contract* of the API hiding between the lines. The tests were telling a story:
 
